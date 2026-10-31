@@ -1,0 +1,16 @@
+packages:
+  - apps/*
+  - apps/bakehouse/extensions/*
+  - packages/*
+
+injectWorkspacePackages: true
+autoInstallPeers: true
+
+onlyBuiltDependencies:
+  - "@parcel/watcher"
+  - esbuild
+  - unrs-resolver
+  - workerd
+
+overrides:
+  qs: ^6.16.0

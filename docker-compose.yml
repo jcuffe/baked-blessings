@@ -1,0 +1,20 @@
+# Local Postgres for Bakehouse development. Start with `pnpm db:up`.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bakehouse
+      POSTGRES_PASSWORD: bakehouse
+      POSTGRES_DB: bakehouse
+    ports:
+      - "${BAKEHOUSE_PG_PORT:-55432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # TCP check, so `docker compose up --wait` waits past the image's init-only server.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --host=localhost --username=bakehouse --dbname=bakehouse"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+volumes:
+  pgdata:

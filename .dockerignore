@@ -1,0 +1,10 @@
+**/node_modules
+**/.cache
+**/build
+**/dist
+**/.turbo
+**/.react-router
+**/.env
+**/.env.*
+infra
+docs

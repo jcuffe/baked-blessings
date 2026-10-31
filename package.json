@@ -1,0 +1,30 @@
+{
+  "name": "baked-blessings",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "dev": "pnpm db:up && turbo run dev",
+    "dev:storefront": "turbo run dev --filter=!@bb/bakehouse",
+    "dev:shopify": "pnpm db:up && turbo run build --filter=@bb/bakehouse^... && pnpm --filter @bb/bakehouse dev:shopify",
+    "db:up": "docker compose up --detach --wait postgres",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down --volumes && pnpm db:migrate",
+    "db:migrate": "pnpm db:up && pnpm --filter @bb/bakehouse db:migrate",
+    "db:generate": "turbo run build --filter=@bb/bakehouse^... && pnpm --filter @bb/bakehouse db:generate",
+    "db:psql": "docker compose exec postgres psql --username=bakehouse bakehouse",
+    "check": "turbo run build --filter='./packages/*' && pnpm boundaries && turbo run typecheck test",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "boundaries": "depcruise packages --config .dependency-cruiser.cjs"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "^18.5.0",
+    "turbo": "^2.11.7"
+  }
+}

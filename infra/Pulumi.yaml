@@ -1,0 +1,10 @@
+name: baked-blessings
+description: Infrastructure for Jakki's Baked Blessings (DNS, Bakehouse hosting, Postgres, CI secrets)
+runtime: go
+packages:
+  render:
+    source: terraform-provider
+    version: 1.4.0
+    parameters:
+      - render-oss/render
+      - 1.9.1

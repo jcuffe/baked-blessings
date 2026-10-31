@@ -1,0 +1,40 @@
+/*
+ * Jakki's Baked Blessings design tokens.
+ * Plain CSS custom properties so they survive any framework or platform move.
+ * Palette is a placeholder until it is derived from her logo and photos (milestone M6);
+ * keep body text contrast >= 7:1 against --bb-color-surface.
+ */
+:root {
+  /* Color */
+  --bb-color-surface: #fffaf3;      /* flour */
+  --bb-color-surface-raised: #ffffff;
+  --bb-color-text: #2b1d12;         /* dark crust */
+  --bb-color-text-muted: #5c4633;
+  --bb-color-accent: #8a4b1f;       /* baked crust */
+  --bb-color-accent-contrast: #ffffff;
+  --bb-color-border: #e4d6c3;
+  --bb-color-focus: #1d4ed8;
+  --bb-color-success: #1f6b3a;
+  --bb-color-danger: #a01c1c;
+
+  /* Typography: large by default for older readers */
+  --bb-font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bb-font-display: Georgia, "Times New Roman", serif;
+  --bb-font-size-base: 1.125rem;    /* 18px */
+  --bb-font-size-lg: 1.375rem;
+  --bb-font-size-xl: 1.75rem;
+  --bb-font-size-2xl: 2.25rem;
+  --bb-line-height: 1.6;
+
+  /* Spacing and shape */
+  --bb-space-1: 0.25rem;
+  --bb-space-2: 0.5rem;
+  --bb-space-3: 1rem;
+  --bb-space-4: 1.5rem;
+  --bb-space-5: 2.5rem;
+  --bb-radius: 0.5rem;
+
+  /* Interaction: WCAG 2.2 target size, generous */
+  --bb-target-min: 2.75rem;         /* 44px */
+  --bb-focus-ring: 3px solid var(--bb-color-focus);
+}

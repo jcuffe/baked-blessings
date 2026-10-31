@@ -1,0 +1,10 @@
+{
+  "name": "@bb/brand",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Design tokens (plain CSS custom properties) and brand assets shared by storefront and emails.",
+  "exports": {
+    "./tokens.css": "./tokens.css"
+  },
+  "files": ["tokens.css", "assets"]
+}
