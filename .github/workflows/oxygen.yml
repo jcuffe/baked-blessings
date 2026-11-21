@@ -1,0 +1,54 @@
+# Deploys the storefront to Oxygen on every push that touches it.
+# - master -> the `prod` GitHub environment (Jakki's store). Oxygen maps the default
+#   branch to its Production environment.
+# - any other branch -> the `staging` environment (the Partner dev store). Branches
+#   with no Oxygen environment of their own land in Preview, each push with its own URL.
+# Each environment holds its own SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN (set by infra/ or by
+# hand). Until that secret exists the job skips, so CI stays green before setup.
+name: Storefront deploy (Oxygen)
+
+on:
+  push:
+    paths:
+      - apps/storefront/**
+      - packages/**
+      - pnpm-lock.yaml
+      - .github/workflows/oxygen.yml
+  workflow_dispatch:
+
+concurrency:
+  group: oxygen-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == github.event.repository.default_branch && 'prod' || 'staging' }}
+    env:
+      SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN }}
+    steps:
+      - name: Skip until the storefront is linked
+        if: env.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN == ''
+        run: echo "::notice::No SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN in this environment yet; skipping the Oxygen deploy."
+      - uses: actions/checkout@v4
+        if: env.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN != ''
+      - uses: pnpm/action-setup@v4
+        if: env.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN != ''
+      - uses: actions/setup-node@v4
+        if: env.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN != ''
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - if: env.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN != ''
+        run: pnpm install --frozen-lockfile
+      - name: Build the packages the storefront uses
+        if: env.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN != ''
+        run: pnpm turbo run build --filter=@bb/storefront^...
+      - name: Deploy to Oxygen
+        if: env.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN != ''
+        working-directory: apps/storefront
+        # The lockfile lives at the repo root, so the per-app lockfile check is off.
+        run: pnpm exec shopify hydrogen deploy --build-command "pnpm run build" --no-lockfile-check --metadata-user "${{ github.actor }}"
