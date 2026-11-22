@@ -53,3 +53,10 @@ jobs:
         # The lockfile lives at the repo root, so the per-app lockfile check is off
         # here and in the storefront build script.
         run: pnpm exec shopify hydrogen deploy --build-command "pnpm run build" --no-lockfile-check --metadata-user "${{ github.actor }}"
+      - name: Show the deployment URL
+        if: env.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN != ''
+        working-directory: apps/storefront
+        run: |
+          url=$(jq -r '.url // empty' h2_deploy_log.json)
+          echo "Oxygen deployment: ${url:-see h2_deploy_log.json}"
+          echo "Oxygen deployment for \`${GITHUB_REF_NAME}\`: ${url}" >> "$GITHUB_STEP_SUMMARY"
