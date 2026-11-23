@@ -10,9 +10,11 @@ import (
 	"github.com/jcuffe/baked-blessings/infra/internal/config"
 )
 
-// Environment creates the stack's Actions environment and its secrets. Bootstrap secrets
-// (PULUMI_ACCESS_TOKEN, provider tokens) are set by hand because CI needs them to run Pulumi.
-func Environment(ctx *pulumi.Context, cfg *config.Config) error {
+// Environment creates the stack's Actions environment, its secrets and its variables
+// (non-secret values such as the AWS role and ECR repository the deploy jobs use).
+// Bootstrap secrets (PULUMI_ACCESS_TOKEN, provider tokens) are set by hand because CI
+// needs them to run Pulumi. Variables with an empty value are skipped.
+func Environment(ctx *pulumi.Context, cfg *config.Config, variables map[string]pulumi.StringOutput) error {
 	if cfg.GitHubRepository == "" {
 		return nil
 	}
@@ -35,6 +37,17 @@ func Environment(ctx *pulumi.Context, cfg *config.Config) error {
 			Environment: env.Environment,
 			SecretName:  pulumi.String(name),
 			Value:       value,
+		}); err != nil {
+			return err
+		}
+	}
+
+	for name, value := range variables {
+		if _, err := github.NewActionsEnvironmentVariable(ctx, "ci-var-"+strings.ToLower(name), &github.ActionsEnvironmentVariableArgs{
+			Repository:   pulumi.String(repo),
+			Environment:  env.Environment,
+			VariableName: pulumi.String(name),
+			Value:        value,
 		}); err != nil {
 			return err
 		}

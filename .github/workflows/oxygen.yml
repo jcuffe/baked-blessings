@@ -1,10 +1,9 @@
-# Deploys the storefront to Oxygen on every push that touches it.
-# - master -> the `prod` GitHub environment (Jakki's store). Oxygen maps the default
-#   branch to its Production environment.
-# - any other branch -> the `staging` environment (the Partner dev store). Branches
-#   with no Oxygen environment of their own land in Preview, each push with its own URL.
-# Each environment holds its own SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN (set by infra/ or by
-# hand). Until that secret exists the job skips, so CI stays green before setup.
+# Deploys the storefront to Oxygen on the Partner dev store on every push that touches
+# it: the review environment for work in progress. Every branch other than master lands
+# in Oxygen's Preview with its own URL per push; master lands in the dev store's
+# Production. Public production runs on AWS instead (storefront-image.yml, ADR 0009).
+# The `staging` GitHub environment holds SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN. Until that
+# secret exists the job skips, so CI stays green before setup.
 name: Storefront deploy (Oxygen)
 
 on:
@@ -26,7 +25,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == github.event.repository.default_branch && 'prod' || 'staging' }}
+    environment: staging
     env:
       SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN }}
     steps:

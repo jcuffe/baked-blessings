@@ -10,3 +10,4 @@
 | [0006](0006-pulumi-go-cloudflare.md) | Pulumi (Go) IaC, Cloudflare DNS |
 | [0007](0007-local-fulfillment-only.md) | Pickup + local delivery only in v1 |
 | [0008](0008-customer-communications.md) | Shopify notifications + Resend + Twilio |
+| [0009](0009-aws-hosting.md) | AWS for all hosting; pod-ready containers built in CI |
