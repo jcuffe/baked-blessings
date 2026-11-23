@@ -22,6 +22,11 @@ jobs:
 
   infra:
     runs-on: ubuntu-latest
+    env:
+      # The Cloudflare and AWS SDKs are huge; compiling them in parallel with the default
+      # GC runs the runner out of memory. Fewer workers and a tighter GC keep it steady.
+      GOFLAGS: -p=2
+      GOGC: '25'
     defaults:
       run:
         working-directory: infra
