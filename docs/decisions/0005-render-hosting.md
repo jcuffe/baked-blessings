@@ -1,6 +1,6 @@
 # 0005 — Bakehouse and Postgres on Render
 
-**Status:** accepted 2026-10-10 (supersedes the initial Fly.io + Neon choice)
+**Status:** accepted 2026-10-10 (supersedes the initial Fly.io + Neon choice); superseded by [0009](0009-aws-hosting.md)
 
 ## Context
 Bakehouse needs an always-on Node process (web + worker) and Postgres, cheaply, with infrastructure-as-code support. Fly.io's Terraform provider is archived and its Pulumi provider is stale; Neon's free tier cannot sustain an always-polling job queue.

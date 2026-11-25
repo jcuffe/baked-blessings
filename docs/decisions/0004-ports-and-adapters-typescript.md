@@ -1,6 +1,6 @@
 # 0004 — TypeScript apps with Shopify-free core packages
 
-**Status:** accepted 2026-10-10
+**Status:** accepted 2026-10-10; revised by [0010](0010-stripe-checkout-own-catalog.md): Bakehouse is a standalone app with its own sign-in; the core stays free of Shopify and Stripe
 
 ## Context
 Jared preferred Go, but also wanted shared types with the storefront, no tight coupling of differentiating features to Shopify, and no re-implementation of auth Shopify provides. Shopify's React Router app template supplies auth, session storage, webhook verification and the Admin GraphQL client.

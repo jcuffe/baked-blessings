@@ -2,7 +2,7 @@
 
 | # | Decision |
 |---|---|
-| [0001](0001-headless-hydrogen.md) | Headless Shopify: Hydrogen on Oxygen, Shopify checkout |
+| [0001](0001-headless-hydrogen.md) | ~~Headless Shopify: Hydrogen on Oxygen, Shopify checkout~~ (superseded by 0010) |
 | [0002](0002-capacity-ledger-and-holds.md) | Capacity ledger with cart holds; no date variants or $0 lines |
 | [0003](0003-unified-bake-model.md) | One Bake model; cadence is a setting |
 | [0004](0004-ports-and-adapters-typescript.md) | TypeScript apps, Shopify-free core packages |
@@ -11,3 +11,4 @@
 | [0007](0007-local-fulfillment-only.md) | Pickup + local delivery only in v1 |
 | [0008](0008-customer-communications.md) | Shopify notifications + Resend + Twilio |
 | [0009](0009-aws-hosting.md) | AWS for all hosting; pod-ready containers built in CI |
+| [0010](0010-stripe-checkout-own-catalog.md) | Stripe Checkout; our database is the system of record |

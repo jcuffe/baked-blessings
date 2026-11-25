@@ -18,7 +18,6 @@ Jared runs AWS with Pulumi at work and wants one cloud provider so the IaC stays
 - Route 53, once there is a domain: $0.50 per hosted zone a month.
 
 ## Consequences
-- Real checkout still needs a paid Shopify plan: development stores can't process real transactions and are always password protected. Basic is $39 a month billed monthly or $29 a month billed yearly. Hosting the storefront ourselves doesn't change that; it only removes the reason to use Oxygen for production.
-- Until that plan exists, production can point at the dev store's Storefront API so the site can be browsed, but its checkout won't take real payments.
+- Checkout: at the time of this decision, real payments still needed a paid Shopify plan. [ADR 0010](0010-stripe-checkout-own-catalog.md) replaces Shopify checkout with Stripe Checkout, so no Shopify plan is needed.
 - Cold starts on Lambda add latency to the first request after a quiet spell. Provisioned concurrency or Fargate removes it, at a cost.
 - `dns.go` still points the apex at Shopify's storefront IPs from the Oxygen plan; it changes when DNS moves to Route 53.

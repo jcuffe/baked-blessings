@@ -83,7 +83,7 @@ One-time setup (each step creates AWS resources, so it waits for a yes):
    Add `PUBLIC_STOREFRONT_API_TOKEN`, `PUBLIC_STOREFRONT_ID`, `PUBLIC_CHECKOUT_DOMAIN` and the customer-account values from the Hydrogen channel (`pnpm shopify hydrogen env pull` shows them), and `PRIVATE_STOREFRONT_API_TOKEN` with `--secret`. Then `pulumi up -s prod`. The `storefrontUrl` output is the public link.
 6. From then on, every merge to `master` deploys by itself. Roll back by re-running the workflow on an older commit.
 
-Checkout: development stores can't take real payments and are always password protected. Production can point at the dev store's Storefront API so the site can be browsed, but real orders need Jakki's store on a paid Shopify plan (Basic: $39 a month, or $29 a month billed yearly). Switching is a config change: point `PUBLIC_STORE_DOMAIN` and the tokens at that store and run `pulumi up`.
+Checkout: the storefront still runs the Hydrogen scaffold against the Shopify dev store, so it can be browsed but not paid for. Payments move to Stripe Checkout with our own catalog and admin ([ADR 0010](../decisions/0010-stripe-checkout-own-catalog.md)); no Shopify plan is needed.
 
 Custom domain, later: Route 53 and an ACM certificate on the CloudFront distribution (follow-up; ADR 0009).
 
