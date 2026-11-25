@@ -6,7 +6,7 @@ Where each version of the site runs, and how to look at it. Laptop setup is in [
 |---|---|---|---|
 | Dev | GitHub Codespaces, `pnpm dev` | You, through GitHub's forwarded-port URL | Free tier: 120 core-hours (60 hours on 2 cores) and 15 GB a month on GitHub Free |
 | Preview | Oxygen, on the Partner dev store | Store staff (log in to the dev store) | Free |
-| Production | AWS: Lambda behind CloudFront, from the container CI builds | Anyone with the link (`https://<id>.cloudfront.net` until there's a domain) | About $0 a month at launch traffic; real checkout needs a paid Shopify plan |
+| Production | AWS: Lambda behind CloudFront, from the container CI builds | Anyone with the link (`https://<id>.cloudfront.net` until there's a domain) | About $0 a month at launch traffic; checkout moves to Stripe (ADR 0010), no Shopify plan needed |
 
 ## Dev: GitHub Codespaces
 1. On GitHub, **Code → Codespaces → Create codespace on `<branch>`**. Keep the default 2-core machine.
