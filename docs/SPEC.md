@@ -1,6 +1,6 @@
 # Jakki's Baked Blessings — v1 Storefront Specification
 
-> Status: approved 2026-10-10; revised 2026-11-25 for AWS hosting ([ADR 0009](decisions/0009-aws-hosting.md)) and Stripe Checkout with our own catalog and admin ([ADR 0010](decisions/0010-stripe-checkout-own-catalog.md)). Decisions are recorded as ADRs in [`decisions/`](decisions/). Compliance notes: [`compliance.md`](compliance.md).
+> Status: approved 2026-10-10; revised 2026-11-25 for AWS hosting ([ADR 0009](decisions/0009-aws-hosting.md)) Stripe Checkout with our own catalog and admin ([ADR 0010](decisions/0010-stripe-checkout-own-catalog.md)), and the queued catalog sync to Stripe ([ADR 0011](decisions/0011-catalog-sync-to-stripe-queue.md)). Decisions are recorded as ADRs in [`decisions/`](decisions/). Compliance notes: [`compliance.md`](compliance.md).
 
 ## Context
 Jakki bakes sourdough at home in Lincoln, CA (Placer County) under a California Cottage Food registration. We are building an online storefront so customers can order with a credit card for local pickup or delivery.
@@ -17,7 +17,7 @@ Jared (technical) builds and owns the code in the repo. Jakki runs the whole bus
    - Dates spelled out, e.g. "Saturday, October 18". No visible timers, no hover-only controls.
 3. **Own the differentiators and the records, rent the commodities.**
    - Our Postgres is the source of truth for the catalog, bakes, orders and customers.
-   - Stripe processes payments and nothing else; it never holds a catalog we would have to keep in sync.
+   - Stripe processes payments. It holds a mirror of the catalog (identifier, name, photo, price), kept in step from our database through a queue; our database always wins.
    - The bake domain and capacity ledger live in provider-free packages (ports and adapters, enforced by lint).
    - Infrastructure is code (Pulumi Go) on AWS.
 4. **Flexible cadence.** Switching between weekly drop, pick-a-date, and made-to-order is a settings change, not a code change.
@@ -27,7 +27,7 @@ Jared (technical) builds and owns the code in the repo. Jakki runs the whole bus
 ## Decision log
 | Area | Decision |
 |---|---|
-| Payments | **Stripe Checkout** (hosted) in Jakki's Stripe account: cards, Apple Pay, Google Pay, Link. Sessions are built per order from our database with inline prices; nothing in Stripe's catalog. |
+| Payments | **Stripe Checkout** (hosted) in Jakki's Stripe account: cards, Apple Pay, Google Pay, Link. Stripe's catalog mirrors ours (one Product per SKU, keyed by the SKU), synced through an outbox and an SQS FIFO queue. |
 | Catalog and orders | **Our Postgres** is the system of record. Stripe webhooks only advance an order's payment state. |
 | Storefront | **React Router 7** (TypeScript, server-rendered), no Hydrogen. Runs as a container on AWS Lambda behind CloudFront. |
 | Bakehouse | Standalone **React Router 7** app: the full-service admin for Jakki, the storefront's private API, Stripe webhooks, and scheduled jobs. Its own sign-in. UI built with **React Aria Components** for accessibility. |
@@ -56,8 +56,9 @@ Customer ──► Storefront (Lambda + CloudFront) ──HMAC-signed──► B
                 ▼                                                 │      └─► Resend · Twilio · S3 (photos)
           Stripe Checkout ──── webhooks (completed, expired, refunds, disputes) ─┘
 Jakki ──► Bakehouse admin (her own sign-in) ──► products, bakes, orders, refunds, customers, content, settings
-Scheduler (EventBridge) ──► Bakehouse jobs: reminders, "ordering is open", bake generation, hold sweeper
-Pulumi (Go) ──► AWS (ECR, Lambda, CloudFront, S3, Postgres, Scheduler, Route 53) · GitHub environments & variables
+Scheduler (EventBridge) ──► Bakehouse jobs: reminders, "ordering is open", bake generation, hold sweeper, outbox relay, nightly Stripe reconciliation
+Catalog change ──► outbox row (same transaction) ──► SQS FIFO ──► Stripe sync worker ──► Stripe Products/Prices   (5 failures ──► dead-letter queue ──► "Needs attention")
+Pulumi (Go) ──► AWS (ECR, Lambda, CloudFront, S3, SQS, Postgres, Scheduler, Route 53) · GitHub environments & variables
 ```
 
 ### Repo layout
@@ -69,7 +70,8 @@ apps/bakehouse/             React Router 7: admin UI, storefront API, Stripe web
   app/routes/admin.*        thin admin routes: requireStaff → ledger service → UI
   app/routes/api.storefront.*  our HMAC check → ledger service
   app/routes/webhooks.stripe   Stripe signature check → ledger service
-  app/adapters/stripe/      StripePayments implements PaymentsPort
+  app/adapters/stripe/      StripePayments implements PaymentsPort; StripeCatalogSync applies a SKU's current state to Stripe
+  app/routes/events.sqs     Stripe sync worker (SQS events via the Lambda Web Adapter pass-through)
   app/adapters/{resend,twilio,s3}/
   jobs/                     scheduled jobs (invoked by EventBridge Scheduler, or pg-boss in dev)
   Dockerfile
@@ -86,7 +88,12 @@ docs/                       SPEC.md, decisions/ (ADRs), runbooks/, compliance.md
 ## Catalog (system of record: our Postgres)
 - **Product:** name, slug, short and long description, price (cents), photos (S3 keys, ordered, with alt text), ingredients, allergens, storage tips, capacity weight, `scheduled` flag (scheduled products sell per bake; unscheduled sell anytime), active/hidden, sort order, and an internal SKU.
 - **ProductOption:** at most one real option per product in v1 (e.g., Sliced/Unsliced), each value with an optional price change and its own SKU.
-- **Stripe sees only a snapshot.** At checkout the order's lines become inline `price_data`/`product_data` (name with option, first photo, unit amount) with the SKU in metadata. Stripe's Dashboard doesn't list these prices, so there is no catalog to sync; editing a product in the admin changes the next checkout and nothing else.
+- **Stripe holds a mirror, synced through a queue** ([ADR 0011](decisions/0011-catalog-sync-to-stripe-queue.md)):
+  - One Stripe Product per SKU, whose `id` is the SKU, with only the name, first photo and `active`, plus our product ID and catalog version in metadata. One active Price per SKU with `lookup_key` = SKU; a price change creates a new Price and deactivates the old one. Hidden or deleted products are archived in Stripe, never deleted.
+  - Each SKU row has a `version`, plus the Stripe price ID and the version last synced.
+  - Every catalog change bumps the version and writes a `stripe_sync_outbox` row in the same transaction. Bakehouse sends new rows to an SQS FIFO queue right after commit (group = SKU, dedup ID = outbox row ID); a relay every minute sends any it missed.
+  - The worker reads the SKU's current row and makes Stripe match it, with idempotency keys of SKU, version and step, so duplicate or stale messages change nothing. Failures retry with a growing delay; after 5 tries a message goes to the dead-letter queue and the admin shows "Country Loaf didn't reach Stripe" with a Retry button. Concurrency is capped at 2.
+  - Edits made in the Stripe Dashboard are detected through `product.*` and `price.*` webhooks, logged, and overwritten from our database. A nightly reconciliation lists Stripe's products and prices, compares them with ours and queues every mismatch.
 - **Order lines snapshot** name, option, unit price, and capacity weight at the time of the order, so later edits never change past orders.
 
 ## Bake domain (`packages/bake-domain`, persisted by `packages/ledger`)
@@ -138,7 +145,7 @@ These terms are internal only; the UI says "bake".
 4. **Checkout.** The checkout button posts to the storefront's `/checkout` action, which calls Bakehouse to:
    - re-validate the hold and move it to CHECKING_OUT;
    - create the Order and its lines (snapshots) as PENDING_PAYMENT;
-   - create a Stripe Checkout Session with inline line items (plus a delivery-fee line), `client_reference_id` and metadata set to the order ID, `expires_at` 30 minutes out, email collection, and marketing consent collection;
+   - create a Stripe Checkout Session whose lines use each SKU's synced Stripe Price, or inline `price_data` on the Stripe Product when the SKU's latest change is still in the queue (amounts always come from our database), plus a delivery-fee line, `client_reference_id` and metadata set to the order ID, `expires_at` 30 minutes out, email collection, and marketing consent collection;
    - store the session ID on the order and hold, then redirect to Stripe.
 5. **Paid** (`checkout.session.completed`). Verify the signature, de-duplicate by event ID, look up the order by ID, check the amount, mark it PAID, convert the hold into allocations, upsert the Customer, and send the confirmation. If the hold was somehow released, allocate anyway when capacity allows; otherwise raise OVERSOLD.
 6. **Abandoned** (`checkout.session.expired`). Mark the order ABANDONED and release the hold. A sweeper also checks, through the Stripe API, any session past its expiry without an event, so holds never leak. Holds in CHECKING_OUT are never released by a timer alone.
@@ -171,7 +178,7 @@ Jakki manages everything here. She never needs the Stripe Dashboard except to ch
   - Next bake status: open, or closes in N days.
   - Orders and loaves sold versus the limit.
   - Needs-attention cards.
-- **Products:** add and edit loaves and other items: name, description, price, photos (upload from phone, reorder, alt text), option (e.g., Sliced/Unsliced) and its price change, ingredients, allergens, storage tips, loaf weight toward the limit, and whether it sells by bake day or anytime. Hide or show a product.
+- **Products:** (each product shows whether Stripe is up to date, with a Retry button if a change didn't get through) add and edit loaves and other items: name, description, price, photos (upload from phone, reorder, alt text), option (e.g., Sliced/Unsliced) and its price change, ingredients, allergens, storage tips, loaf weight toward the limit, and whether it sells by bake day or anytime. Hide or show a product.
 - **Bakes:** a calendar of bake cards showing the date, when ordering opens and closes, the loaf limit, per-loaf limits, and windows. Actions: change limits, skip this bake, add an extra bake, and set vacation dates.
 - **Orders:** list by bake, search by name, email or phone. Order detail with items, window, contact info, notes and payment status. Actions: mark ready, mark picked up or delivered, cancel and refund, partial refund, resend confirmation, add a private note.
 - **Bake sheet** (printable): totals per loaf and option for a given bake.
@@ -184,6 +191,7 @@ Jakki manages everything here. She never needs the Stripe Dashboard except to ch
   - Default days, times, and limits.
   - Pickup instructions; delivery ZIP codes, fee and minimum.
   - Store name, contact details, and logo.
+  - Stripe catalog check: when the nightly comparison last ran and what it fixed.
 - **Reports:** sales by bake, week and month; loaves sold per product; refunds; Stripe payouts (read through the API). Export to CSV for taxes and the cottage-food sales cap.
 
 ## Communications
@@ -195,7 +203,8 @@ Jakki manages everything here. She never needs the Stripe Dashboard except to ch
 ## Infrastructure as code (`infra/`, Pulumi Go)
 **Managed by Pulumi (AWS unless noted):**
 - **Storefront:** ECR repository, Lambda (container image), streaming function URL, CloudFront distribution with an origin secret, GitHub OIDC role for CI (built; see the environments runbook).
-- **Bakehouse:** the same pattern, plus EventBridge Scheduler rules for jobs, and Stripe and Resend webhook endpoints behind CloudFront.
+- **Bakehouse:** the same pattern, plus EventBridge Scheduler rules for jobs (including the outbox relay and nightly reconciliation), and Stripe and Resend webhook endpoints behind CloudFront.
+- **Stripe sync:** SQS FIFO queue and its dead-letter queue (5 tries), the worker's event source mapping (partial batch failures, concurrency 2), and a CloudWatch alarm on the dead-letter queue.
 - **Data:** Postgres with automated backups (instance type in a follow-up ADR), and an S3 bucket for product photos behind CloudFront.
 - **DNS:** Route 53 hosted zone, ACM certificates, and records for the storefront, `admin`, and Resend (MX, SPF, DKIM, DMARC).
 - **Secrets:** Stripe keys and webhook signing secret, Resend and Twilio keys, session and HMAC secrets: Pulumi config secrets delivered as Lambda environment variables.
@@ -242,7 +251,7 @@ Done in the initial scaffold:
 ## Milestones
 - **M0** Scaffold, infra skeleton, dev container and previews. This spec and the ADRs.
 - **M1** `bake-domain` and `ledger`: catalog, cadence generators, cutoffs, DST handling, capacity math, holds, and orders, with property tests.
-- **M2** Bakehouse core: storefront API, `PaymentsPort` with the Stripe adapter, Stripe webhooks, hold sweeper, scheduled jobs, the Issues queue. Remove the Shopify app pieces.
+- **M2** Bakehouse core: storefront API, `PaymentsPort` with the Stripe adapter, the catalog outbox, SQS queue, sync worker and nightly reconciliation, Stripe webhooks, hold sweeper, scheduled jobs, the Issues queue. Remove the Shopify app pieces.
 - **M3** Storefront on plain React Router 7: catalog, bake chooser, cart and holds, delivery details, checkout, confirmation and order pages, compliance UI, and accessibility.
 - **M4** Admin: sign-in, This week, Products (with photo upload), Bakes, Orders and refunds, Customers, Bake sheet, Pickups & deliveries, Settings.
 - **M5** Messages and site content in the admin, order emails, reminders, reports, and the AWS `prod` stack (Postgres, Bakehouse, photos, DNS).
@@ -287,7 +296,8 @@ Done in the initial scaffold:
   - Cutoff boundaries are correct across the DST changes (2027-03-14, 2027-11-07).
   - Switching cadence never orphans existing orders.
   - Editing a product never changes a past order.
-- **Integration (Bakehouse):** Stripe webhook fixtures cover completed, expired, refunded, and disputed, including duplicates and out-of-order delivery. Concurrent hold requests are tested against a real Postgres (testcontainers).
+  - Every committed catalog change has an outbox row, and none exists for a change that rolled back.
+- **Integration (Bakehouse):** Stripe webhook fixtures cover completed, expired, refunded, and disputed, including duplicates and out-of-order delivery. Concurrent hold requests are tested against a real Postgres (testcontainers). The sync worker is tested against Stripe test mode with duplicate, reordered and stale messages, a mid-sync timeout (no second Price), a Dashboard edit that gets overwritten, and checkout falling back to inline prices while a change is queued.
 - **Architecture:** dependency-cruiser keeps the core packages free of Shopify, Stripe, and React Router imports.
 - **Infra:** `pulumi preview` is clean on both stacks; mocked unit tests for each component.
 - **End to end (Playwright, staging, Stripe test mode):**

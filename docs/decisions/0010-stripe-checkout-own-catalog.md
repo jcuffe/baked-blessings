@@ -1,6 +1,6 @@
 # 0010 — Stripe Checkout; our database is the system of record
 
-**Status:** accepted 2026-11-25 (supersedes 0001; revises 0002, 0004 and 0008)
+**Status:** accepted 2026-11-25 (supersedes 0001; revises 0002, 0004 and 0008). Catalog decision revised by [0011](0011-catalog-sync-to-stripe-queue.md).
 
 ## Context
 ADR 0009 moved hosting to AWS and treats Shopify as a vendor to use only where it is the best value. Re-evaluated against that:
@@ -11,7 +11,7 @@ ADR 0009 moved hosting to AWS and treats Shopify as a vendor to use only where i
 
 ## Decision
 - **Payments:** Stripe Checkout (hosted), in Jakki's Stripe account. Cards, Apple Pay, Google Pay and Link. No delayed payment methods, so a completed session is a paid order.
-- **Catalog of record:** products, options, prices, photos, ingredients, allergens and capacity weights live only in our Postgres, edited in the Bakehouse admin. Nothing is kept in Stripe's catalog. Each Checkout Session is built at checkout time from our database with inline `price_data` and `product_data` (name, image, amount) and our SKU in metadata. Stripe documents that prices created this way don't appear in the Dashboard's product lists, so there is no second catalog to keep in sync.
+- **Catalog of record:** products, options, prices, photos, ingredients, allergens and capacity weights live only in our Postgres, edited in the Bakehouse admin. ~~Nothing is kept in Stripe's catalog; each Checkout Session uses inline `price_data`.~~ Revised by 0011: Stripe holds a mirror of the catalog (one Product per SKU, keyed by our SKU), kept in step through an outbox and an SQS queue. Inline `price_data` remains checkout's fallback while a change is still in the queue.
 - **Orders of record:** our Postgres. The checkout action writes the order and its lines (prices snapshotted) before redirecting to Stripe, with the order ID on the session. Stripe webhooks only move that order through payment states; they never create it.
 - **Admin:** Bakehouse becomes a standalone, full-service admin with its own sign-in, covering products, bakes, orders, refunds, customers, messages, site content, settings and reports. Jakki should never need the Stripe Dashboard except to manage her payout bank account.
 - **Storefront:** React Router 7 without Hydrogen, served by the container from 0009. Hydrogen, Oxygen, the Shopify embedded app, the checkout extension and the Shopify notification templates are dropped.

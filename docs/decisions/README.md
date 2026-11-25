@@ -12,3 +12,4 @@
 | [0008](0008-customer-communications.md) | Shopify notifications + Resend + Twilio |
 | [0009](0009-aws-hosting.md) | AWS for all hosting; pod-ready containers built in CI |
 | [0010](0010-stripe-checkout-own-catalog.md) | Stripe Checkout; our database is the system of record |
+| [0011](0011-catalog-sync-to-stripe-queue.md) | Catalog synced from our database to Stripe through an outbox and SQS |
