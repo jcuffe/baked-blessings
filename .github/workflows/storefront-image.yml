@@ -1,0 +1,121 @@
+name: Storefront image
+
+# Builds the storefront container on every change, runs it and checks that it serves
+# pages. On the default branch it also publishes the image to Amazon ECR and rolls the
+# production Lambda onto it, but only once the prod environment has the AWS variables
+# that `pulumi up` prints (see docs/runbooks/environments.md).
+
+on:
+  pull_request:
+    paths:
+      - apps/storefront/**
+      - packages/**
+      - pnpm-lock.yaml
+      - .github/workflows/storefront-image.yml
+  push:
+    branches: [master]
+    paths:
+      - apps/storefront/**
+      - packages/**
+      - pnpm-lock.yaml
+      - .github/workflows/storefront-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Lambda runs the image on arm64 (Graviton), so build it natively there.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -f apps/storefront/Dockerfile -t storefront:ci .
+
+      - name: Run image and check it serves pages
+        run: |
+          docker run -d --name storefront -p 8080:8080 \
+            -e SESSION_SECRET=ci-only \
+            -e PUBLIC_STORE_DOMAIN=mock.shop \
+            storefront:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/healthz && break
+            sleep 1
+          done
+          echo
+          curl -fsS -o home.html -w 'GET / -> %{http_code}\n' http://127.0.0.1:8080/
+          grep -qi '<html' home.html
+          asset=$(grep -o '/assets/[^"]*\.js' home.html | head -1)
+          curl -fsS -o /dev/null -w "GET $asset -> %{http_code}\n" "http://127.0.0.1:8080$asset"
+
+      - name: Container log
+        if: always()
+        run: docker logs storefront || true
+
+      - name: Save image
+        if: github.event_name != 'pull_request'
+        run: docker save storefront:ci | gzip > storefront.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: storefront-image
+          path: storefront.tar.gz
+          retention-days: 3
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04-arm
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC, so no long-lived AWS keys live in GitHub.
+    env:
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REPOSITORY_URL: ${{ vars.STOREFRONT_ECR_REPOSITORY_URL }}
+      LAMBDA_FUNCTION: ${{ vars.STOREFRONT_LAMBDA_FUNCTION }}
+    steps:
+      - name: Check AWS is set up
+        id: aws
+        run: |
+          if [ -z "$AWS_ROLE_ARN" ] || [ -z "$ECR_REPOSITORY_URL" ]; then
+            echo "::notice::AWS isn't set up for this environment yet, so the image wasn't published."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.aws.outputs.ready == 'true'
+        with:
+          name: storefront-image
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.aws.outputs.ready == 'true'
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        if: steps.aws.outputs.ready == 'true'
+
+      - name: Push image
+        if: steps.aws.outputs.ready == 'true'
+        run: |
+          gunzip -c storefront.tar.gz | docker load
+          docker tag storefront:ci "$ECR_REPOSITORY_URL:$GITHUB_SHA"
+          docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA"
+
+      - name: Roll the Lambda onto the new image
+        if: steps.aws.outputs.ready == 'true' && env.LAMBDA_FUNCTION != ''
+        run: |
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION" \
+            --image-uri "$ECR_REPOSITORY_URL:$GITHUB_SHA" \
+            --publish --query Version --output text
+          aws lambda wait function-updated-v2 --function-name "$LAMBDA_FUNCTION"
+          echo "Deployed $GITHUB_SHA to $LAMBDA_FUNCTION" >> "$GITHUB_STEP_SUMMARY"

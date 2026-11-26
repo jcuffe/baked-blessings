@@ -1,4 +1,4 @@
-import {createHydrogenContext} from '@shopify/hydrogen';
+import {createHydrogenContext, InMemoryCache} from '@shopify/hydrogen';
 import {AppSession} from '~/lib/session';
 import {CART_QUERY_FRAGMENT} from '~/lib/fragments';
 import type {CartApiQueryFragment} from 'storefrontapi.generated';
@@ -23,6 +23,9 @@ declare global {
   interface HydrogenCustomCartFragment extends CartApiQueryFragment {}
 }
 
+// One cache per Node process, shared across requests.
+const nodeCache = new InMemoryCache();
+
 /**
  * Creates Hydrogen context for React Router 7.9.x
  * Returns HydrogenRouterContextProvider with hybrid access patterns
@@ -33,7 +36,9 @@ export async function createHydrogenRouterContext(
   executionContext: ExecutionContext,
 ) {
   /**
-   * Open a cache instance in the worker and a custom session instance.
+   * Open a cache and a custom session instance. Oxygen and other worker runtimes
+   * provide the Cache API; the Node container (container/server.mjs) doesn't, so
+   * it falls back to a per-process in-memory cache.
    */
   if (!env?.SESSION_SECRET) {
     throw new Error('SESSION_SECRET environment variable is not set');
@@ -41,7 +46,9 @@ export async function createHydrogenRouterContext(
 
   const waitUntil = executionContext.waitUntil.bind(executionContext);
   const [cache, session] = await Promise.all([
-    caches.open('hydrogen'),
+    typeof caches === 'undefined'
+      ? Promise.resolve(nodeCache)
+      : caches.open('hydrogen'),
     AppSession.init(request, [env.SESSION_SECRET]),
   ]);
 

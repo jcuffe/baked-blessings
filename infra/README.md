@@ -1,6 +1,6 @@
 # Infrastructure (Pulumi, Go)
 
-Manages Cloudflare DNS + Email Routing, Bakehouse on Render (web service + Postgres), and GitHub Actions environments. Stacks: `staging`, `prod`. State: Pulumi Cloud (free tier).
+Manages the storefront on AWS (ECR, Lambda, CloudFront, a GitHub OIDC role for CI), Cloudflare DNS + Email Routing, Bakehouse on Render (web service + Postgres), and GitHub Actions environments. Hosting is moving to AWS ([ADR 0009](../docs/decisions/0009-aws-hosting.md)); the Render and Cloudflare parts only run when the stack sets `domain`. Stacks: `staging`, `prod`. State: Pulumi Cloud (free tier).
 
 The Render provider is bridged from Terraform (`render-oss/render` 1.9.1) and its SDK is generated into `sdks/render`. Regenerate after bumping the version in `Pulumi.yaml`:
 
@@ -24,11 +24,16 @@ pulumi login
 pulumi stack init staging
 ```
 
-Then set configuration (repeat per stack; `--secret` for secrets):
+Then set configuration (repeat per stack; `--secret` for secrets). Storefront setup order is in [the environments runbook](../docs/runbooks/environments.md#production-aws-lambda--cloudfront).
 
 | Key | Example / notes |
 |---|---|
-| `domain` | `jakkisbakedblessings.com` |
+| `domain` | `jakkisbakedblessings.com`; optional, turns on Cloudflare DNS and Render |
+| `aws:region` | `us-east-1`; turns on the storefront on AWS |
+| `storefrontImageTag` | commit SHA of an image CI pushed; empty on the first run (creates only ECR and the CI role) |
+| `storefrontMemoryMb`, `githubOidcProviderArn` | `1024` (default); an existing GitHub OIDC provider in the account, if any |
+| `PUBLIC_STORE_DOMAIN` + `SESSION_SECRET` (secret) | required once `storefrontImageTag` is set |
+| `PUBLIC_STOREFRONT_API_TOKEN`, `PUBLIC_STOREFRONT_ID`, `PUBLIC_CHECKOUT_DOMAIN`, `PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID`, `PUBLIC_CUSTOMER_ACCOUNT_API_URL`, `SHOP_ID`, `BAKEHOUSE_API_URL`, `BAKEHOUSE_KEY_ID`; `PRIVATE_STOREFRONT_API_TOKEN`, `BAKEHOUSE_HMAC_SECRET` (secrets) | optional storefront environment |
 | `region` | `oregon` (default) |
 | `bakehouseImage`, `bakehouseImageTag` | `ghcr.io/jcuffe/baked-blessings-bakehouse`, `latest` |
 | `bakehousePlan`, `postgresPlan`, `postgresVersion` | `starter`, `basic_256mb`, `17` (defaults) |
@@ -38,7 +43,7 @@ Then set configuration (repeat per stack; `--secret` for secrets):
 | `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID` | secrets (optional) |
 | `resendDkim`, `forwardTo` (secret) | prod only: Resend DKIM value; inbox for `hello@` |
 | `githubRepository` + `SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN`, `SHOPIFY_CLI_PARTNERS_TOKEN` (secrets) | optional CI environment |
-| `cloudflare:apiToken`, `render:apiKey`, `render:ownerId`, `github:token`, `github:owner` | provider config (secrets) |
+| `cloudflare:apiToken`, `render:apiKey`, `render:ownerId`, `github:token`, `github:owner` | provider config (secrets); AWS credentials come from the environment (`aws configure sso`) |
 
 Example:
 

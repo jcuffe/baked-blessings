@@ -1,5 +1,5 @@
-// Architecture boundaries (docs/SPEC.md, ADR 0004). The core packages hold our
-// differentiating logic and must stay portable off Shopify and off React Router.
+// Architecture boundaries (docs/SPEC.md, ADRs 0004 and 0010). The core packages hold our
+// differentiating logic and must stay free of providers (Shopify, Stripe) and of React Router.
 const CORE = "^packages/(bake-domain|ledger|contracts)/";
 
 /** @type {import('dependency-cruiser').IConfiguration} */
@@ -11,6 +11,13 @@ module.exports = {
       severity: "error",
       from: { path: CORE },
       to: { path: "@shopify/" },
+    },
+    {
+      name: "core-no-stripe",
+      comment: "Core packages must not depend on Stripe; payments go through PaymentsPort.",
+      severity: "error",
+      from: { path: CORE },
+      to: { path: "(^|/)node_modules/stripe/" },
     },
     {
       name: "core-no-framework",

@@ -1,5 +1,5 @@
 name: baked-blessings
-description: Infrastructure for Jakki's Baked Blessings (DNS, Bakehouse hosting, Postgres, CI secrets)
+description: Infrastructure for Jakki's Baked Blessings (storefront on AWS, DNS, Bakehouse hosting, Postgres, CI secrets)
 runtime: go
 packages:
   render:

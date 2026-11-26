@@ -1,6 +1,6 @@
 # 0008 — Customer communications
 
-**Status:** accepted 2026-10-10
+**Status:** accepted 2026-10-10; revised by [0010](0010-stripe-checkout-own-catalog.md): order emails are ours, through Resend, instead of Shopify notifications
 
 ## Decision
 - Edit Shopify's notification templates (confirmation, cancellation, ready for pickup, local delivery) to print the bake day and window; the defaults do not reliably show line-item properties.

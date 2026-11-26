@@ -18,7 +18,9 @@ Online storefront for Jakki's home-baked sourdough (Lincoln, CA). Customers orde
 Core packages may not import Shopify, React or React Router — `pnpm boundaries` enforces it.
 
 ## Getting started
-Install the tools pinned in `.mise.toml` (`mise install`), start Docker, then:
+The quickest start is a GitHub Codespace (**Code → Codespaces**), which installs everything and runs the bootstrap for you. [docs/runbooks/environments.md](docs/runbooks/environments.md) covers it, along with Oxygen previews and production.
+
+On your own machine, install the tools pinned in `.mise.toml` (`mise install`), start Docker, then:
 
 ```bash
 pnpm bootstrap

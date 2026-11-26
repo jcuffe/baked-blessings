@@ -1,5 +1,5 @@
 [tools]
-node = "22.20"
+node = "22.22" # Medusa 2.23 needs Node 22.22 or later
 pnpm = "latest"
 go = "1.26"
 pulumi = "3.259.0"

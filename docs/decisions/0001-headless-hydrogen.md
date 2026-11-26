@@ -1,6 +1,6 @@
 # 0001 — Headless Shopify: Hydrogen on Oxygen
 
-**Status:** accepted 2026-10-10
+**Status:** accepted 2026-10-10; superseded by [0010](0010-stripe-checkout-own-catalog.md) on 2026-11-25
 
 ## Context
 Jared wants to own the executed storefront code; Jakki is non-technical and only needs to manage products, prices and content. Card payments must be PCI-compliant without us handling card data.

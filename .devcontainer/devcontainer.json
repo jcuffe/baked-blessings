@@ -1,0 +1,39 @@
+// GitHub Codespaces dev environment. See docs/runbooks/environments.md.
+// Sized for the free tier: a 2-core codespace (8 GB RAM) uses 2 of the monthly
+// included core-hours per hour, so GitHub Free covers about 60 hours a month.
+{
+  "name": "Baked Blessings",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "hostRequirements": { "cpus": 2 },
+  "features": {
+    // Postgres runs in Docker (docker-compose.yml), as on a laptop.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    // Claude Code CLI; run `claude` in the terminal and sign in once per codespace.
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
+  "containerEnv": {
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
+  },
+  // pnpm comes from the packageManager pin in package.json via corepack. Go and
+  // Pulumi (infra/) are left out to keep the codespace small; run `mise install`
+  // if you need them.
+  "onCreateCommand": "sudo corepack enable",
+  "postCreateCommand": "pnpm bootstrap",
+  // Containers stop with the codespace; this brings Postgres back on each start.
+  "postStartCommand": "pnpm db:up",
+  "forwardPorts": [3000, 3001],
+  "portsAttributes": {
+    "3000": { "label": "Storefront", "onAutoForward": "notify" },
+    "3001": { "label": "Bakehouse", "onAutoForward": "silent" },
+    "55432": { "label": "Postgres", "onAutoForward": "ignore" },
+    "64999": { "label": "Bakehouse HMR", "onAutoForward": "ignore" }
+  },
+  "customizations": {
+    "codespaces": {
+      "openFiles": ["docs/runbooks/environments.md"]
+    },
+    "vscode": {
+      "extensions": ["anthropic.claude-code", "dbaeumer.vscode-eslint"]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # 0002 — Capacity ledger with cart holds
 
-**Status:** accepted 2026-10-10
+**Status:** accepted 2026-10-10; revised by [0010](0010-stripe-checkout-own-catalog.md): holds are tied to Stripe Checkout Sessions; the Shopify inventory backstop is dropped
 
 ## Context
 Bakes have a total loaf limit plus optional per-product limits. On non-Plus plans, custom checkout validation (Functions in custom apps) is unavailable, so Shopify can only enforce limits through inventory. Per-date variants and hidden $0 "reservation" lines would enforce limits natively but would show implementation details to Jakki and her customers, who are largely older and non-technical.
