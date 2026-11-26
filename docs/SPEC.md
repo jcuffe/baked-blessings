@@ -1,5 +1,7 @@
 # Jakki's Baked Blessings — v1 Storefront Specification
 
+> **Being reworked for Medusa (2026-11-26):** commerce moves to Medusa v2 per [ADR 0012](decisions/0012-medusa-commerce-platform.md). Sections on Bakehouse, checkout, the admin and the Stripe catalog sync will be rewritten once its open questions are answered.
+
 > Status: approved 2026-10-10; revised 2026-11-25 for AWS hosting ([ADR 0009](decisions/0009-aws-hosting.md)) Stripe Checkout with our own catalog and admin ([ADR 0010](decisions/0010-stripe-checkout-own-catalog.md)), and the queued catalog sync to Stripe ([ADR 0011](decisions/0011-catalog-sync-to-stripe-queue.md)). Decisions are recorded as ADRs in [`decisions/`](decisions/). Compliance notes: [`compliance.md`](compliance.md).
 
 ## Context

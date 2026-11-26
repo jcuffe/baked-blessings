@@ -1,6 +1,6 @@
 # 0011 — Catalog sync from our database to Stripe through a queue
 
-**Status:** accepted 2026-11-25 (revises 0010's catalog decision)
+**Status:** accepted 2026-11-25 (revises 0010's catalog decision). On hold: [0012](0012-medusa-commerce-platform.md) asks whether Stripe still needs a catalog mirror under Medusa.
 
 ## Context
 ADR 0010 kept Stripe's catalog empty and built each Checkout Session from inline `price_data`. Jared would rather Stripe hold the catalog as a mirror of ours: our Postgres stays the source of truth, Stripe gets as little as possible (ideally an identifier), and the two are kept in step by a queue.

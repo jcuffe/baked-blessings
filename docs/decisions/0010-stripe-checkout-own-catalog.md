@@ -1,6 +1,6 @@
 # 0010 — Stripe Checkout; our database is the system of record
 
-**Status:** accepted 2026-11-25 (supersedes 0001; revises 0002, 0004 and 0008). Catalog decision revised by [0011](0011-catalog-sync-to-stripe-queue.md).
+**Status:** accepted 2026-11-25 (supersedes 0001; revises 0002, 0004 and 0008). Catalog decision revised by [0011](0011-catalog-sync-to-stripe-queue.md). Under review in [0012](0012-medusa-commerce-platform.md), which moves commerce to Medusa.
 
 ## Context
 ADR 0009 moved hosting to AWS and treats Shopify as a vendor to use only where it is the best value. Re-evaluated against that:
