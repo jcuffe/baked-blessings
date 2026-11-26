@@ -23,7 +23,18 @@ Facts checked 2026-11-26:
 ## Open questions (for Jared)
 1. **Admin.** Medusa's admin is complete but generic: it speaks in regions, sales channels, stock locations and fulfillment sets, and roles and audit logs are Enterprise-only, so every admin user has full access. Options: (a) Medusa's admin plus our own pages for bakes and "This week" (least work); (b) our own plain-language admin for Jakki on Medusa's Admin API (matches the spec's principle 1, most work); (c) (a) now, then a small plain-language app for her daily screens later.
 2. **Checkout.** Medusa's Stripe provider puts Stripe's card form on our checkout page instead of Stripe's hosted page (0010). Card details still stay inside Stripe's frames. Options: (a) use it as is, and release a held loaf when the cart goes idle after cancelling its payment intent so it can't be paid later; (b) write a Medusa payment provider for Stripe's hosted Checkout, keeping 0010's "a hold ends only when the session expires" guarantee, at the cost of a custom provider to maintain.
-3. **Hosting cost.** Shopify Basic was $29 to $39 a month. Medusa's minimum on managed AWS services is higher. Fargate on Graviton is about $17 a month per 0.5 vCPU / 2 GB task (aws.amazon.com/fargate/pricing, 2026-11-26); with a server and a worker, RDS, Redis and a load balancer it likely comes to roughly $70 to $90 a month (the RDS, Redis and load balancer figures are estimates, not yet checked). Options: (a) that fully managed setup; (b) one Fargate task in shared mode with the smallest RDS and Redis, roughly half; (c) one small Graviton EC2 instance running Medusa, Postgres and Redis as containers with backups to S3, roughly $15 to $25, still containerized for EKS later.
+3. **Hosting cost.** Shopify Basic was $29 to $39 a month. Monthly on-demand prices in us-east-1 from AWS's public price list (pricing.us-east-1.amazonaws.com, effective 2026-11-01; 730 hours), with the storefront's Lambda and CloudFront still near $0:
+
+   | Piece | (a) managed, split | (b) managed, one task | (c) one instance |
+   |---|---|---|---|
+   | Medusa compute | 2 Fargate Graviton tasks, 0.5 vCPU / 2 GB: $34.04 | 1 task in `shared` mode: $17.02 | t4g.medium (2 vCPU, 4 GB) running Medusa, Postgres and Redis in containers: $24.53 |
+   | Postgres | RDS db.t4g.micro + 20 GB gp3: $13.98 | same: $13.98 | in the instance; 30 GB gp3 disk: $2.40 |
+   | Redis | ElastiCache Valkey cache.t4g.micro: $9.34 | same: $9.34 | in the instance |
+   | Load balancer | ALB: $16.43 + usage | same: $16.43 + usage | none; CloudFront reaches the instance directly |
+   | Public IPv4 | tasks and ALB: about $7 to $15 | about $4 to $11 | one address: $3.65 |
+   | **Total** | **about $81 to $89** | **about $61 to $68** | **about $31** |
+
+   The load balancer and the two managed data services are most of (a) and (b). (c) stays containerized for EKS later, but its database backups, patching and restarts are ours (snapshots to S3 cost pennies). Options: (a), (b) or (c).
 4. **Stripe catalog mirror (0011).** Medusa's Stripe provider only sends payment amounts; it doesn't put products in Stripe. Options: (a) drop the mirror for v1 and keep 0011's design for when Stripe Terminal or a loaf club needs it; (b) build it now as a Medusa subscriber and workflow (Medusa's workflows retry durably through Redis), or (c) on the SQS queue as 0011 describes.
 
 ## Consequences
